@@ -1,7 +1,6 @@
 const basicAuth = require("express-basic-auth");
 const passwordHash = require("./password-hash");
 const { R } = require("redbean-node");
-const { setting } = require("./util-server");
 const { log } = require("../src/util");
 const { loginRateLimiter, apiRateLimiter } = require("./rate-limiter");
 const { Settings } = require("./settings");
@@ -130,7 +129,7 @@ function userAuthorizer(username, password, callback) {
  * @param {express.Request} req Express request object
  * @param {express.Response} res Express response object
  * @param {express.NextFunction} next Next handler in chain
- * @returns {void}
+ * @returns {Promise<void>}
  */
 exports.basicAuth = async function (req, res, next) {
     const middleware = basicAuth({
@@ -139,7 +138,7 @@ exports.basicAuth = async function (req, res, next) {
         challenge: true,
     });
 
-    const disabledAuth = await setting("disableAuth");
+    const disabledAuth = await Settings.get("disableAuth");
 
     if (!disabledAuth) {
         middleware(req, res, next);
@@ -153,7 +152,7 @@ exports.basicAuth = async function (req, res, next) {
  * @param {express.Request} req Express request object
  * @param {express.Response} res Express response object
  * @param {express.NextFunction} next Next handler in chain
- * @returns {void}
+ * @returns {Promise<void>}
  */
 exports.apiAuth = async function (req, res, next) {
     if (!await Settings.get("disableAuth")) {

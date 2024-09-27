@@ -1,11 +1,11 @@
 const fs = require("fs");
 const { R } = require("redbean-node");
-const { setSetting, setting } = require("./util-server");
 const { log, sleep } = require("../src/util");
 const knex = require("knex");
 const path = require("path");
 const { EmbeddedMariaDB } = require("./embedded-mariadb");
 const mysql = require("mysql2/promise");
+const { Settings } = require("./settings");
 
 /**
  * Database & App Data Folder
@@ -105,7 +105,8 @@ class Database {
         "patch-add-gamedig-given-port.sql": true,
         "patch-notification-config.sql": true,
         "patch-fix-kafka-producer-booleans.sql": true,
-        "patch-timeout.sql": true, // The last file so far converted to a knex migration file
+        "patch-timeout.sql": true,
+        "patch-monitor-tls-info-add-fk.sql": true, // The last file so far converted to a knex migration file
     };
 
     /**
@@ -208,9 +209,9 @@ class Database {
         let config = {};
 
         let mariadbPoolConfig = {
-            afterCreate: function (conn, done) {
-
-            }
+            min: 0,
+            max: 10,
+            idleTimeoutMillis: 30000,
         };
 
         log.info("db", `Database Type: ${dbConfig.type}`);
@@ -378,7 +379,7 @@ class Database {
 
     /**
      * Patch the database
-     * @returns {void}
+     * @returns {Promise<void>}
      */
     static async patch() {
         // Still need to keep this for old versions of Uptime Kuma
@@ -419,7 +420,7 @@ class Database {
      * @deprecated
      */
     static async patchSqlite() {
-        let version = parseInt(await setting("database_version"));
+        let version = parseInt(await Settings.get("database_version"));
 
         if (! version) {
             version = 0;
@@ -444,7 +445,7 @@ class Database {
                     log.info("db", `Patching ${sqlFile}`);
                     await Database.importSQLFile(sqlFile);
                     log.info("db", `Patched ${sqlFile}`);
-                    await setSetting("database_version", i);
+                    await Settings.set("database_version", i);
                 }
             } catch (ex) {
                 await Database.close();
@@ -470,7 +471,7 @@ class Database {
      */
     static async patchSqlite2() {
         log.debug("db", "Database Patch 2.0 Process");
-        let databasePatchedFiles = await setting("databasePatchedFiles");
+        let databasePatchedFiles = await Settings.get("databasePatchedFiles");
 
         if (! databasePatchedFiles) {
             databasePatchedFiles = {};
@@ -498,7 +499,7 @@ class Database {
             process.exit(1);
         }
 
-        await setSetting("databasePatchedFiles", databasePatchedFiles);
+        await Settings.set("databasePatchedFiles", databasePatchedFiles);
     }
 
     /**
@@ -511,27 +512,27 @@ class Database {
         // Fix 1.13.0 empty slug bug
         await R.exec("UPDATE status_page SET slug = 'empty-slug-recover' WHERE TRIM(slug) = ''");
 
-        let title = await setting("title");
+        let title = await Settings.get("title");
 
         if (title) {
-            console.log("Migrating Status Page");
+            log.info("database", "Migrating Status Page");
 
             let statusPageCheck = await R.findOne("status_page", " slug = 'default' ");
 
             if (statusPageCheck !== null) {
-                console.log("Migrating Status Page - Skip, default slug record is already existing");
+                log.info("database", "Migrating Status Page - Skip, default slug record is already existing");
                 return;
             }
 
             let statusPage = R.dispense("status_page");
             statusPage.slug = "default";
             statusPage.title = title;
-            statusPage.description = await setting("description");
-            statusPage.icon = await setting("icon");
-            statusPage.theme = await setting("statusPageTheme");
-            statusPage.published = !!await setting("statusPagePublished");
-            statusPage.search_engine_index = !!await setting("searchEngineIndex");
-            statusPage.show_tags = !!await setting("statusPageTags");
+            statusPage.description = await Settings.get("description");
+            statusPage.icon = await Settings.get("icon");
+            statusPage.theme = await Settings.get("statusPageTheme");
+            statusPage.published = !!await Settings.get("statusPagePublished");
+            statusPage.search_engine_index = !!await Settings.get("searchEngineIndex");
+            statusPage.show_tags = !!await Settings.get("statusPageTags");
             statusPage.password = null;
 
             if (!statusPage.title) {
@@ -559,13 +560,13 @@ class Database {
             await R.exec("DELETE FROM setting WHERE type = 'statusPage'");
 
             // Migrate Entry Page if it is status page
-            let entryPage = await setting("entryPage");
+            let entryPage = await Settings.get("entryPage");
 
             if (entryPage === "statusPage") {
-                await setSetting("entryPage", "statusPage-default", "general");
+                await Settings.set("entryPage", "statusPage-default", "general");
             }
 
-            console.log("Migrating Status Page - Done");
+            log.info("database", "Migrating Status Page - Done");
         }
 
     }

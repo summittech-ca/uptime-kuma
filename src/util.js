@@ -8,11 +8,34 @@
 // Backend uses the compiled file util.js
 // Frontend uses util.ts
 */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sleep = exports.flipStatus = exports.badgeConstants = exports.CONSOLE_STYLE_BgGray = exports.CONSOLE_STYLE_BgWhite = exports.CONSOLE_STYLE_BgCyan = exports.CONSOLE_STYLE_BgMagenta = exports.CONSOLE_STYLE_BgBlue = exports.CONSOLE_STYLE_BgYellow = exports.CONSOLE_STYLE_BgGreen = exports.CONSOLE_STYLE_BgRed = exports.CONSOLE_STYLE_BgBlack = exports.CONSOLE_STYLE_FgPink = exports.CONSOLE_STYLE_FgBrown = exports.CONSOLE_STYLE_FgViolet = exports.CONSOLE_STYLE_FgLightBlue = exports.CONSOLE_STYLE_FgLightGreen = exports.CONSOLE_STYLE_FgOrange = exports.CONSOLE_STYLE_FgGray = exports.CONSOLE_STYLE_FgWhite = exports.CONSOLE_STYLE_FgCyan = exports.CONSOLE_STYLE_FgMagenta = exports.CONSOLE_STYLE_FgBlue = exports.CONSOLE_STYLE_FgYellow = exports.CONSOLE_STYLE_FgGreen = exports.CONSOLE_STYLE_FgRed = exports.CONSOLE_STYLE_FgBlack = exports.CONSOLE_STYLE_Hidden = exports.CONSOLE_STYLE_Reverse = exports.CONSOLE_STYLE_Blink = exports.CONSOLE_STYLE_Underscore = exports.CONSOLE_STYLE_Dim = exports.CONSOLE_STYLE_Bright = exports.CONSOLE_STYLE_Reset = exports.MIN_INTERVAL_SECOND = exports.MAX_INTERVAL_SECOND = exports.SQL_DATETIME_FORMAT_WITHOUT_SECOND = exports.SQL_DATETIME_FORMAT = exports.SQL_DATE_FORMAT = exports.STATUS_PAGE_MAINTENANCE = exports.STATUS_PAGE_PARTIAL_DOWN = exports.STATUS_PAGE_ALL_UP = exports.STATUS_PAGE_ALL_DOWN = exports.MAINTENANCE = exports.PENDING = exports.UP = exports.DOWN = exports.appName = exports.isNode = exports.isDev = void 0;
-exports.intHash = exports.localToUTC = exports.utcToLocal = exports.utcToISODateTime = exports.isoToUTCDateTime = exports.parseTimeFromTimeObject = exports.parseTimeObject = exports.getMaintenanceRelativeURL = exports.getMonitorRelativeURL = exports.genSecret = exports.getCryptoRandomInt = exports.getRandomInt = exports.getRandomArbitrary = exports.TimeLogger = exports.polyfill = exports.log = exports.debug = exports.ucfirst = void 0;
-const dayjs = require("dayjs");
+exports.evaluateJsonQuery = exports.intHash = exports.localToUTC = exports.utcToLocal = exports.utcToISODateTime = exports.isoToUTCDateTime = exports.parseTimeFromTimeObject = exports.parseTimeObject = exports.getMaintenanceRelativeURL = exports.getMonitorRelativeURL = exports.genSecret = exports.getCryptoRandomInt = exports.getRandomInt = exports.getRandomArbitrary = exports.TimeLogger = exports.polyfill = exports.log = exports.ucfirst = void 0;
+const dayjs_1 = __importDefault(require("dayjs"));
+const jsonata = __importStar(require("jsonata"));
 exports.isDev = process.env.NODE_ENV === "development";
 exports.isNode = typeof process !== "undefined" && ((_a = process === null || process === void 0 ? void 0 : process.versions) === null || _a === void 0 ? void 0 : _a.node);
 exports.appName = "Uptime Kuma";
@@ -118,10 +141,6 @@ function ucfirst(str) {
     return firstLetter.toUpperCase() + str.substr(1);
 }
 exports.ucfirst = ucfirst;
-function debug(msg) {
-    exports.log.log("", msg, "debug");
-}
-exports.debug = debug;
 class Logger {
     constructor() {
         this.hideLog = {
@@ -149,21 +168,29 @@ class Logger {
         if (this.hideLog[level] && this.hideLog[level].includes(module.toLowerCase())) {
             return;
         }
-        module = module.toUpperCase();
-        level = level.toUpperCase();
         let now;
-        if (dayjs.tz) {
-            now = dayjs.tz(new Date()).format();
+        if (dayjs_1.default.tz) {
+            now = dayjs_1.default.tz(new Date()).format();
         }
         else {
-            now = dayjs().format();
+            now = (0, dayjs_1.default)().format();
         }
         const levelColor = consoleLevelColors[level];
         const moduleColor = consoleModuleColors[intHash(module, consoleModuleColors.length)];
-        let timePart;
-        let modulePart;
-        let levelPart;
-        let msgPart;
+        let timePart = now;
+        let modulePart = module;
+        let levelPart = level;
+        let msgPart = msg;
+        if (process.env.UPTIME_KUMA_LOG_FORMAT === "json") {
+            console.log(JSON.stringify({
+                time: timePart,
+                module: modulePart,
+                level: levelPart,
+                msg: typeof msg === "string" ? msg : JSON.stringify(msg),
+            }));
+            return;
+        }
+        module = module.toUpperCase();
         if (exports.isNode) {
             switch (level) {
                 case "DEBUG":
@@ -180,28 +207,17 @@ class Logger {
                     if (typeof msg === "string") {
                         msgPart = exports.CONSOLE_STYLE_FgRed + msg + exports.CONSOLE_STYLE_Reset;
                     }
-                    else {
-                        msgPart = msg;
-                    }
                     break;
                 case "DEBUG":
                     if (typeof msg === "string") {
                         msgPart = exports.CONSOLE_STYLE_FgGray + msg + exports.CONSOLE_STYLE_Reset;
                     }
-                    else {
-                        msgPart = msg;
-                    }
-                    break;
-                default:
-                    msgPart = msg;
                     break;
             }
         }
         else {
-            timePart = now;
             modulePart = `[${module}]`;
             levelPart = `${level}:`;
-            msgPart = msg;
         }
         switch (level) {
             case "ERROR":
@@ -224,23 +240,23 @@ class Logger {
         }
     }
     info(module, msg) {
-        this.log(module, msg, "info");
+        this.log(module, msg, "INFO");
     }
     warn(module, msg) {
-        this.log(module, msg, "warn");
+        this.log(module, msg, "WARN");
     }
     error(module, msg) {
-        this.log(module, msg, "error");
+        this.log(module, msg, "ERROR");
     }
     debug(module, msg) {
-        this.log(module, msg, "debug");
+        this.log(module, msg, "DEBUG");
     }
     exception(module, exception, msg) {
         let finalMessage = exception;
         if (msg) {
             finalMessage = `${msg}: ${exception}`;
         }
-        this.log(module, finalMessage, "error");
+        this.log(module, finalMessage, "ERROR");
     }
 }
 exports.log = new Logger();
@@ -257,11 +273,11 @@ function polyfill() {
 exports.polyfill = polyfill;
 class TimeLogger {
     constructor() {
-        this.startTime = dayjs().valueOf();
+        this.startTime = (0, dayjs_1.default)().valueOf();
     }
     print(name) {
         if (exports.isDev && process.env.TIMELOGGER === "1") {
-            console.log(name + ": " + (dayjs().valueOf() - this.startTime) + "ms");
+            console.log(name + ": " + ((0, dayjs_1.default)().valueOf() - this.startTime) + "ms");
         }
     }
 }
@@ -373,19 +389,19 @@ function parseTimeFromTimeObject(obj) {
 }
 exports.parseTimeFromTimeObject = parseTimeFromTimeObject;
 function isoToUTCDateTime(input) {
-    return dayjs(input).utc().format(exports.SQL_DATETIME_FORMAT);
+    return (0, dayjs_1.default)(input).utc().format(exports.SQL_DATETIME_FORMAT);
 }
 exports.isoToUTCDateTime = isoToUTCDateTime;
 function utcToISODateTime(input) {
-    return dayjs.utc(input).toISOString();
+    return dayjs_1.default.utc(input).toISOString();
 }
 exports.utcToISODateTime = utcToISODateTime;
 function utcToLocal(input, format = exports.SQL_DATETIME_FORMAT) {
-    return dayjs.utc(input).local().format(format);
+    return dayjs_1.default.utc(input).local().format(format);
 }
 exports.utcToLocal = utcToLocal;
 function localToUTC(input, format = exports.SQL_DATETIME_FORMAT) {
-    return dayjs(input).utc().format(format);
+    return (0, dayjs_1.default)(input).utc().format(format);
 }
 exports.localToUTC = localToUTC;
 function intHash(str, length = 10) {
@@ -396,3 +412,59 @@ function intHash(str, length = 10) {
     return (hash % length + length) % length;
 }
 exports.intHash = intHash;
+async function evaluateJsonQuery(data, jsonPath, jsonPathOperator, expectedValue) {
+    let response;
+    try {
+        response = JSON.parse(data);
+    }
+    catch (_a) {
+        response = (typeof data === "object" || typeof data === "number") && !Buffer.isBuffer(data) ? data : data.toString();
+    }
+    try {
+        response = (jsonPath) ? await jsonata(jsonPath).evaluate(response) : response;
+        if (response === null || response === undefined) {
+            throw new Error("Empty or undefined response. Check query syntax and response structure");
+        }
+        if (typeof response === "object" || response instanceof Date || typeof response === "function") {
+            throw new Error(`The post-JSON query evaluated response from the server is of type ${typeof response}, which cannot be directly compared to the expected value`);
+        }
+        let jsonQueryExpression;
+        switch (jsonPathOperator) {
+            case ">":
+            case ">=":
+            case "<":
+            case "<=":
+                jsonQueryExpression = `$number($.value) ${jsonPathOperator} $number($.expected)`;
+                break;
+            case "!=":
+                jsonQueryExpression = "$.value != $.expected";
+                break;
+            case "==":
+                jsonQueryExpression = "$.value = $.expected";
+                break;
+            case "contains":
+                jsonQueryExpression = "$contains($.value, $.expected)";
+                break;
+            default:
+                throw new Error(`Invalid condition ${jsonPathOperator}`);
+        }
+        const expression = jsonata(jsonQueryExpression);
+        const status = await expression.evaluate({
+            value: response.toString(),
+            expected: expectedValue.toString()
+        });
+        if (status === undefined) {
+            throw new Error("Query evaluation returned undefined. Check query syntax and the structure of the response data");
+        }
+        return {
+            status,
+            response
+        };
+    }
+    catch (err) {
+        response = JSON.stringify(response);
+        response = (response && response.length > 50) ? `${response.substring(0, 100)}… (truncated)` : response;
+        throw new Error(`Error evaluating JSON query: ${err.message}. Response from server was: ${response}`);
+    }
+}
+exports.evaluateJsonQuery = evaluateJsonQuery;

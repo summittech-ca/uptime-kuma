@@ -10,6 +10,10 @@ const jwt = require("jsonwebtoken");
 const config = require("../config");
 const { RemoteBrowser } = require("../remote-browser");
 
+/**
+ * Cached instance of a browser
+ * @type {import ("playwright-core").Browser}
+ */
 let browser = null;
 
 let allowedList = [];
@@ -59,7 +63,7 @@ if (process.platform === "win32") {
  * @returns {Promise<boolean>} The executable is allowed?
  */
 async function isAllowedChromeExecutable(executablePath) {
-    console.log(config.args);
+    log.info("Chromium", config.args);
     if (config.args["allow-all-chrome-exec"] || process.env.UPTIME_KUMA_ALLOW_ALL_CHROME_EXEC === "1") {
         return true;
     }
@@ -71,10 +75,12 @@ async function isAllowedChromeExecutable(executablePath) {
 /**
  * Get the current instance of the browser. If there isn't one, create
  * it.
- * @returns {Promise<Browser>} The browser
+ * @returns {Promise<import ("playwright-core").Browser>} The browser
  */
 async function getBrowser() {
-    if (!browser) {
+    if (browser && browser.isConnected()) {
+        return browser;
+    } else {
         let executablePath = await Settings.get("chromeExecutable");
 
         executablePath = await prepareChromeExecutable(executablePath);
@@ -83,8 +89,9 @@ async function getBrowser() {
             //headless: false,
             executablePath,
         });
+
+        return browser;
     }
-    return browser;
 }
 
 /**
@@ -95,7 +102,8 @@ async function getBrowser() {
  */
 async function getRemoteBrowser(remoteBrowserID, userId) {
     let remoteBrowser = await RemoteBrowser.get(remoteBrowserID, userId);
-    log.debug("MONITOR", `Using remote browser: ${remoteBrowser.name} (${remoteBrowser.id})`);
+    log.debug("Chromium", `Using remote browser: ${remoteBrowser.name} (${remoteBrowser.id})`);
+    browser = chromium.connect(remoteBrowser.url);
     browser = await chromium.connect(remoteBrowser.url);
     return browser;
 }
